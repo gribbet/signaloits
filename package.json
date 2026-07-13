@@ -1,15 +1,15 @@
 {
-  "name": "@gribbet/signal.ts",
+  "name": "signlets",
   "version": "1.0.0",
   "description": "Tiny fine-grained reactive signals for TypeScript.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gribbet/signal.ts.git"
+    "url": "git+https://github.com/gribbet/signlets.git"
   },
-  "homepage": "https://github.com/gribbet/signal.ts#readme",
+  "homepage": "https://github.com/gribbet/signlets#readme",
   "bugs": {
-    "url": "https://github.com/gribbet/signal.ts/issues"
+    "url": "https://github.com/gribbet/signlets/issues"
   },
   "type": "module",
   "main": "dist/index.js",

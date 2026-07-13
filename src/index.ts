@@ -1,4 +1,4 @@
-export const SIGNAL = Symbol.for("signal.ts/signal");
+export const SIGNAL = Symbol.for("signlets/signal");
 
 export type Signal<T> = (() => T) & { [SIGNAL]: true };
 
@@ -89,6 +89,8 @@ export const derived = <T>(f: () => T): Signal<T> => {
   effect(() => setValue(f()));
   return value;
 };
+
+export const $ = derived;
 
 export const root = <T>(f: (dispose: () => void) => T): T => {
   const root = {
