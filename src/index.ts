@@ -114,112 +114,87 @@ export const root = <T>(f: (dispose: () => void) => T): T => {
 export const resolve = <T>(value: MaybeSignal<T>): T =>
   typeof value === "function" && SIGNAL in value ? value() : value;
 
-export type MapOptions<T, K> = {
-  key: (item: T, i: number) => K;
-};
+export const properties = <T extends object>(
+  item: Signal<Properties<T>>,
+): Properties<T> => {
+  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
+    $(() => resolve(item()[key] as MaybeSignal<T[K]>));
 
-type MapFn = {
-  <T, U>(
-    list: T[] | Signal<T[]>,
-    mapper: (item: T, i: Signal<number>) => U,
-  ): Signal<U[]>;
-  <T, K, U>(
-    list: T[] | Signal<T[]>,
-    mapper: (item: Signal<T>, i: Signal<number>) => U,
-    options: MapOptions<T, K>,
-  ): Signal<U[]>;
-};
-
-export const map: MapFn = <T, K, U>(
-  list: T[] | Signal<T[]>,
-  mapper:
-    | ((item: T, i: Signal<number>) => U)
-    | ((item: Signal<T>, i: Signal<number>) => U),
-  options?: MapOptions<T, K>,
-): Signal<U[]> => {
-  if (options) {
-    type Entry = {
-      value: U;
-      setItem: (item: T) => void;
-      setIndex: (i: number) => void;
-      dispose: () => void;
-    };
-
-    let cache = new Map<K, Entry>();
-
-    onCleanup(() => cache.forEach(_ => _.dispose()));
-
-    return derived(() => {
-      const nextList = resolve(list);
-      const next: [K, Entry][] = [];
-      const seen = new Set<K>();
-
-      nextList.forEach((item, i) => {
-        const key = options.key(item, i);
-        if (seen.has(key))
-          throw new Error(`Duplicate key in map: ${String(key)}`);
-        seen.add(key);
-
-        let entry = cache.get(key);
-        if (entry) {
-          entry.setItem(item);
-          entry.setIndex(i);
-          cache.delete(key);
-        } else {
-          const [itemValue, setItem] = signal(item);
-          const [index, setIndex] = signal(i);
-          entry = root(dispose => {
-            const value = (mapper as (item: Signal<T>, i: Signal<number>) => U)(
-              itemValue,
-              index,
-            );
-            return {
-              value,
-              setItem,
-              setIndex,
-              dispose,
-            };
-          });
-        }
-
-        next.push([key, entry]);
-      });
-
-      cache.forEach(_ => _.dispose());
-      cache = new Map(next);
-
-      return next.map(([, entry]) => entry.value);
+  const result = {} as Properties<T>;
+  for (const key in item())
+    Object.defineProperty(result, key, {
+      value: property(key),
+      enumerable: true,
     });
-  }
 
-  type Entry = { value: U; setIndex: (i: number) => void; dispose: () => void };
-  let cache = new Map<T, Entry>();
+  return new Proxy(result, {
+    get: (target, key) => {
+      if (key in target) return target[key as keyof T];
+      return property(key as keyof T);
+    },
+  });
+};
+
+export const map = <T, U>(
+  list: MaybeSignal<T[]>,
+  mapper: (item: Signal<T>, i: Signal<number>) => U,
+  options?: {
+    key: (item: T, i: number) => unknown;
+  },
+): Signal<U[]> => {
+  type Entry = {
+    value: U;
+    setItem: (item: T) => void;
+    setIndex: (i: number) => void;
+    dispose: () => void;
+  };
+
+  const createEntry = (item: T, i: number): Entry => {
+    const [itemValue, setItem] = signal(item);
+    const [index, setIndex] = signal(i);
+    return root(dispose => {
+      const value = mapper(itemValue, index);
+      return {
+        value,
+        setItem,
+        setIndex,
+        dispose,
+      };
+    });
+  };
+
+  const updateEntry = (entry: Entry, item: T, i: number) => {
+    entry.setItem(item);
+    entry.setIndex(i);
+  };
+
+  const key: (item: T, i: number) => unknown = options?.key ?? (item => item);
+  let cache = new Map<unknown, Entry>();
 
   onCleanup(() => cache.forEach(_ => _.dispose()));
 
   return derived(() => {
     const nextList = resolve(list);
-    const next: [T, Entry][] = nextList.map((item, i) => {
-      let entry = cache.get(item);
+    const next: [unknown, Entry][] = [];
+    const seen = new Set<unknown>();
+
+    nextList.forEach((item, i) => {
+      const itemKey = key(item, i);
+      if (seen.has(itemKey))
+        throw new Error(`Duplicate key in map: ${String(itemKey)}`);
+      seen.add(itemKey);
+
+      let entry = cache.get(itemKey);
       if (entry) {
-        entry.setIndex(i);
-        cache.delete(item);
+        updateEntry(entry, item, i);
+        cache.delete(itemKey);
       } else {
-        const [index, setIndex] = signal(i);
-        entry = root(dispose => {
-          const value = (mapper as (item: T, i: Signal<number>) => U)(
-            item,
-            index,
-          );
-          return {
-            value,
-            setIndex,
-            dispose,
-          };
-        });
+        entry = createEntry(item, i);
       }
-      return [item, entry] as const;
+
+      next.push([itemKey, entry]);
     });
+
     cache.forEach(_ => _.dispose());
     cache = new Map(next);
     return next.map(([, entry]) => entry.value);
