@@ -45,7 +45,7 @@ const cleanup = ({ cleanups }: Effect) => {
 };
 
 export const effect = (f: () => void | (() => void)) => {
-  const run = () => {
+  const run = async () => {
     cleanup(effect);
 
     const previousOwner = currentOwner;
@@ -54,7 +54,7 @@ export const effect = (f: () => void | (() => void)) => {
     currentListener = effect;
 
     try {
-      const cleanup = f();
+      const cleanup = await f();
       if (cleanup) onCleanup(cleanup);
     } finally {
       currentOwner = previousOwner;
@@ -115,13 +115,13 @@ export const resolve = <T>(value: MaybeSignal<T>): T =>
   typeof value === "function" && SIGNAL in value ? value() : value;
 
 export const properties = <T extends object>(
-  item: Signal<Properties<T>>,
+  item: MaybeSignal<Properties<T>>,
 ): Properties<T> => {
   const property = <K extends keyof T>(key: K): Signal<T[K]> =>
-    $(() => resolve(item()[key] as MaybeSignal<T[K]>));
+    $(() => resolve(resolve(item)[key] as MaybeSignal<T[K]>));
 
   const result = {} as Properties<T>;
-  for (const key in item())
+  for (const key in resolve(item))
     Object.defineProperty(result, key, {
       value: property(key),
       enumerable: true,
