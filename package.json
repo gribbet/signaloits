@@ -1,6 +1,6 @@
 {
   "name": "signaloits",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Tiny fine-grained reactive signals for TypeScript.",
   "license": "MIT",
   "repository": {
