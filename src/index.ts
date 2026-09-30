@@ -45,7 +45,7 @@ const cleanup = ({ cleanups }: Effect) => {
 };
 
 export const effect = (f: () => void | (() => void)) => {
-  const run = async () => {
+  const run = () => {
     cleanup(effect);
 
     const previousOwner = currentOwner;
@@ -54,7 +54,7 @@ export const effect = (f: () => void | (() => void)) => {
     currentListener = effect;
 
     try {
-      const cleanup = await f();
+      const cleanup = f();
       if (cleanup) onCleanup(cleanup);
     } finally {
       currentOwner = previousOwner;
