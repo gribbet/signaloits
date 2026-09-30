@@ -200,3 +200,32 @@ export const map = <T, U>(
     return next.map(([, entry]) => entry.value);
   });
 };
+
+export const when = <T, U extends T, V>(
+  value: MaybeSignal<T>,
+  predicate: (value: T) => value is U,
+  mapper: (value: Signal<U>) => V,
+): Signal<V | undefined> => {
+  const [result, setResult] = signal<V | undefined>(undefined);
+  let update: ((value: U) => void) | undefined;
+
+  effect(() => {
+    const current = resolve(value);
+    if (!predicate(current)) {
+      setResult(undefined);
+      update = undefined;
+      return;
+    }
+
+    if (update) {
+      update(current);
+      return;
+    }
+
+    const [narrowed, setNarrowed] = signal(current);
+    update = setNarrowed;
+    setResult(mapper(narrowed));
+  });
+
+  return result;
+};
