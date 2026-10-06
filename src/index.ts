@@ -15,6 +15,26 @@ export type Effect = {
 
 let currentOwner: Effect | undefined = undefined;
 let currentListener: Effect | undefined = undefined;
+let queue: Set<Effect> | undefined = undefined;
+
+const enqueue = (effects: Set<Effect>) => {
+  if (queue) {
+    const pending = queue;
+    effects.forEach(_ => pending.add(_));
+    return;
+  }
+
+  const pending = new Set(effects);
+  queue = pending;
+  try {
+    pending.forEach(effect => {
+      pending.delete(effect);
+      effect.run();
+    });
+  } finally {
+    queue = undefined;
+  }
+};
 
 export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   const subscribers = new Set<Effect>();
@@ -33,7 +53,7 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   const setter = (newValue: T) => {
     if (value === newValue) return;
     value = newValue;
-    [...subscribers].forEach(_ => _.run());
+    enqueue(subscribers);
   };
 
   return [getter, setter];
