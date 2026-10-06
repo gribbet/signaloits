@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@gribbet/eslint-config": "github:gribbet/eslint-config",
-    "eslint": "^10.4.0",
-    "typescript": "^6.0.3"
+    "eslint": "^10.12.0",
+    "typescript": "^7.0.2"
   }
 }
