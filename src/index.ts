@@ -8,10 +8,6 @@ export type Properties<T> = {
   [K in keyof T]: Signal<T[K]>;
 };
 
-export type MaybeProperties<T> = {
-  [K in keyof T]: MaybeSignal<T[K]>;
-};
-
 type Effect = {
   run: () => void;
   cleanups: (() => void)[];
@@ -158,23 +154,17 @@ export const resolve = <T>(value: MaybeSignal<T>): T =>
   typeof value === "function" && SIGNAL in value ? value() : value;
 
 export const properties = <T extends object>(
-  item: MaybeSignal<Properties<T>>,
+  item: MaybeSignal<T>,
 ): Properties<T> => {
-  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
-    $(() => resolve(resolve(item)[key] as MaybeSignal<T[K]>));
+  const result = Object.create(null) as Properties<T>;
 
-  const result = {} as Properties<T>;
-  for (const key in resolve(item))
-    Object.defineProperty(result, key, {
-      value: property(key),
-      enumerable: true,
-    });
+  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
+    (result[key] ??= $(() => resolve(item)[key]));
+
+  for (const key in resolve(item)) property(key);
 
   return new Proxy(result, {
-    get: (target, key) => {
-      if (key in target) return target[key as keyof T];
-      return property(key as keyof T);
-    },
+    get: (_, key) => property(key as keyof T),
   });
 };
 
