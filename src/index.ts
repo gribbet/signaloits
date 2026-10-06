@@ -137,67 +137,44 @@ export const properties = <T extends object>(
 
 export const map = <T, U>(
   list: MaybeSignal<T[]>,
-  mapper: (item: Signal<T>, i: Signal<number>) => U,
-  options?: {
-    key: (item: T, i: number) => unknown;
-  },
+  mapper: (item: Signal<T>) => U,
+  identity: (item: T, i: number) => unknown = _ => _,
 ): Signal<U[]> => {
   type Entry = {
     value: U;
-    setItem: (item: T) => void;
-    setIndex: (i: number) => void;
+    setValue: (value: T) => void;
     dispose: () => void;
   };
 
-  const createEntry = (item: T, i: number): Entry => {
-    const [itemValue, setItem] = signal(item);
-    const [index, setIndex] = signal(i);
-    return root(dispose => {
-      const value = mapper(itemValue, index);
-      return {
-        value,
-        setItem,
-        setIndex,
-        dispose,
-      };
-    });
+  const createEntry = (item: T): Entry => {
+    const [value, setValue] = signal(item);
+    return root(dispose => ({
+      value: mapper(value),
+      setValue,
+      dispose,
+    }));
   };
 
-  const updateEntry = (entry: Entry, item: T, i: number) => {
-    entry.setItem(item);
-    entry.setIndex(i);
-  };
-
-  const key: (item: T, i: number) => unknown = options?.key ?? (item => item);
   let cache = new Map<unknown, Entry>();
 
   onCleanup(() => cache.forEach(_ => _.dispose()));
 
   return derived(() => {
-    const nextList = resolve(list);
-    const next: [unknown, Entry][] = [];
-    const seen = new Set<unknown>();
-
-    nextList.forEach((item, i) => {
-      const itemKey = key(item, i);
-      if (seen.has(itemKey))
-        throw new Error(`Duplicate key in map: ${String(itemKey)}`);
-      seen.add(itemKey);
-
-      let entry = cache.get(itemKey);
-      if (entry) {
-        updateEntry(entry, item, i);
-        cache.delete(itemKey);
-      } else {
-        entry = createEntry(item, i);
-      }
-
-      next.push([itemKey, entry]);
+    const next = new Map<unknown, Entry>();
+    const values = resolve(list).map((item, i) => {
+      const key = identity(item, i);
+      const entry = next.get(key) ?? cache.get(key) ?? createEntry(item);
+      entry.setValue(item);
+      next.set(key, entry);
+      return entry.value;
     });
 
-    cache.forEach(_ => _.dispose());
-    cache = new Map(next);
-    return next.map(([, entry]) => entry.value);
+    cache.forEach((entry, key) => {
+      if (!next.has(key)) entry.dispose();
+    });
+
+    cache = next;
+    return values;
   });
 };
 
