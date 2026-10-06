@@ -2,38 +2,39 @@
   "name": "signaloits",
   "version": "1.2.0",
   "description": "Tiny fine-grained reactive signals for TypeScript.",
+  "homepage": "https://github.com/gribbet/signaloits#readme",
+  "bugs": {
+    "url": "https://github.com/gribbet/signaloits/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gribbet/signaloits.git"
   },
-  "homepage": "https://github.com/gribbet/signaloits#readme",
-  "bugs": {
-    "url": "https://github.com/gribbet/signaloits/issues"
-  },
-  "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
   ],
+  "type": "module",
   "sideEffects": false,
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
   "scripts": {
-    "build": "tsc",
-    "lint": "eslint --max-warnings 0 --cache --cache-strategy content .",
+    "build": "vp pack src/index.ts --dts --sourcemap --target esnext",
+    "check": "vp check",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@gribbet/eslint-config": "github:gribbet/eslint-config",
-    "eslint": "^10.12.0",
-    "typescript": "^7.0.2"
-  }
+    "vite-plus": "1.0.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
+  },
 }

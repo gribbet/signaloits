@@ -1,4 +1,4 @@
-export const SIGNAL = Symbol.for("signaloits/signal");
+export const SIGNAL: unique symbol = Symbol.for("signaloits/signal");
 
 export type Signal<T> = (() => T) & { [SIGNAL]: true };
 
@@ -81,7 +81,7 @@ const cleanup = ({ cleanups }: Effect) => {
   cleanups.length = 0;
 };
 
-export const effect = (f: () => void | (() => void)) => {
+export const effect = (f: () => void | (() => void)): void => {
   const run = () => {
     cleanup(effect);
 
@@ -129,7 +129,7 @@ export const derived = <T>(f: () => T): Signal<T> => {
   return value;
 };
 
-export const $ = derived;
+export const $: typeof derived = derived;
 
 export const root = <T>(f: (dispose: () => void) => T): T => {
   const root = {
