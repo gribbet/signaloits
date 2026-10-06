@@ -3,7 +3,6 @@ import { defineConfig, type UserConfig } from "vite-plus";
 const config: UserConfig = defineConfig({
   fmt: {
     arrowParens: "avoid",
-    ignorePatterns: ["src/simulation/arduplane.js"],
     printWidth: 80,
     sortImports: {},
   },
@@ -15,7 +14,6 @@ const config: UserConfig = defineConfig({
       typeAware: true,
       typeCheck: true,
     },
-    ignorePatterns: ["src/simulation/arduplane.js"],
     rules: {
       "no-case-declarations": "error",
       "no-empty": "error",

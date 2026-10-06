@@ -1,4 +1,4 @@
-export const SIGNAL: unique symbol = Symbol.for("signaloits/signal");
+const SIGNAL: unique symbol = Symbol.for("signaloits/signal");
 
 export type Signal<T> = (() => T) & { [SIGNAL]: true };
 
@@ -76,14 +76,14 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   return [getter, setter];
 };
 
-const cleanup = ({ cleanups }: Effect) => {
+const dispose = ({ cleanups }: Effect) => {
   cleanups.forEach(_ => _());
   cleanups.length = 0;
 };
 
 export const effect = (f: () => void | (() => void)): void => {
   const run = () => {
-    cleanup(effect);
+    dispose(effect);
 
     const previousOwner = currentOwner;
     const previousListener = currentListener;
@@ -104,7 +104,7 @@ export const effect = (f: () => void | (() => void)): void => {
     cleanups: [],
   } satisfies Effect;
 
-  defer(() => cleanup(effect));
+  defer(() => dispose(effect));
 
   run();
 };
@@ -143,7 +143,7 @@ export const root = <T>(f: (dispose: () => void) => T): T => {
   currentListener = undefined;
 
   try {
-    return f(() => cleanup(root));
+    return f(() => dispose(root));
   } finally {
     currentOwner = previousOwner;
     currentListener = previousListener;

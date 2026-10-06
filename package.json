@@ -2,10 +2,6 @@
   "name": "signaloits",
   "version": "1.2.0",
   "description": "Tiny fine-grained reactive signals for TypeScript.",
-  "homepage": "https://github.com/gribbet/signaloits#readme",
-  "bugs": {
-    "url": "https://github.com/gribbet/signaloits/issues"
-  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,7 +14,6 @@
   "type": "module",
   "sideEffects": false,
   "main": "dist/index.mjs",
-  "module": "dist/index.mjs",
   "types": "dist/index.d.mts",
   "exports": {
     ".": {
@@ -36,5 +31,5 @@
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
-  },
+  }
 }
