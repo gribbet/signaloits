@@ -8,18 +8,20 @@ export type Properties<T> = {
   [K in keyof T]-?: Signal<T[K]>;
 };
 
-type Effect = {
-  run: () => void;
+type Owner = {
   cleanups: (() => void)[];
 };
 
-let currentOwner: Effect | undefined = undefined;
+type Effect = Owner & {
+  run: () => void;
+};
+
+let currentOwner: Owner | undefined = undefined;
 let currentListener: Effect | undefined = undefined;
 let queue: Set<Effect> | undefined = undefined;
 
-const dispose = ({ cleanups }: Effect) => {
-  cleanups.forEach(_ => _());
-  cleanups.length = 0;
+const dispose = ({ cleanups }: Owner) => {
+  cleanups.splice(0).forEach(_ => _());
 };
 
 const flush = () => {
@@ -87,10 +89,10 @@ export const effect = (f: () => void): void => {
     }
   };
 
-  const effect = {
+  const effect: Effect = {
     run,
     cleanups: [],
-  } satisfies Effect;
+  };
 
   defer(() => {
     queue?.delete(effect);
@@ -134,10 +136,9 @@ export const defer = (f: () => void): void => {
 };
 
 export const root = <T>(f: (dispose: () => void) => T): T => {
-  const root = {
-    run: () => {},
+  const root: Owner = {
     cleanups: [],
-  } satisfies Effect;
+  };
 
   const previousOwner = currentOwner;
   const previousListener = currentListener;
