@@ -5,10 +5,14 @@ export type Signal<T> = (() => T) & { [SIGNAL]: true };
 export type MaybeSignal<T> = T | Signal<T>;
 
 export type Properties<T> = {
+  [K in keyof T]: Signal<T[K]>;
+};
+
+export type MaybeProperties<T> = {
   [K in keyof T]: MaybeSignal<T[K]>;
 };
 
-export type Effect = {
+type Effect = {
   run: () => void;
   cleanups: (() => void)[];
 };
@@ -68,7 +72,7 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   getter[SIGNAL] = true;
 
   const setter = (newValue: T) => {
-    if (value === newValue) return;
+    if (Object.is(value, newValue)) return;
     value = newValue;
     enqueue(subscribers);
   };
