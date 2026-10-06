@@ -17,15 +17,10 @@ let currentOwner: Effect | undefined = undefined;
 let currentListener: Effect | undefined = undefined;
 let queue: Set<Effect> | undefined = undefined;
 
-const enqueue = (effects: Set<Effect>) => {
-  if (queue) {
-    const pending = queue;
-    effects.forEach(_ => pending.add(_));
-    return;
-  }
+const flush = () => {
+  const pending = queue;
+  if (!pending) return;
 
-  const pending = new Set(effects);
-  queue = pending;
   try {
     pending.forEach(effect => {
       pending.delete(effect);
@@ -33,6 +28,28 @@ const enqueue = (effects: Set<Effect>) => {
     });
   } finally {
     queue = undefined;
+  }
+};
+
+const enqueue = (effects: Set<Effect>) => {
+  if (queue) {
+    const pending = queue;
+    effects.forEach(_ => pending.add(_));
+    return;
+  }
+
+  queue = new Set(effects);
+  flush();
+};
+
+export const batch = <T>(f: () => T): T => {
+  if (queue) return f();
+
+  queue = new Set();
+  try {
+    return f();
+  } finally {
+    flush();
   }
 };
 
