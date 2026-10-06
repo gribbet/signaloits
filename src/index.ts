@@ -49,7 +49,9 @@ const enqueue = (effects: Set<Effect>) => {
   flush();
 };
 
-export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
+export const signal = <T>(
+  value: T,
+): readonly [Signal<T>, (value: T) => void] => {
   const subscribers = new Set<Effect>();
 
   const getter = (() => {
@@ -162,7 +164,7 @@ export const properties = <T extends object>(
   const result = Object.create(null) as Properties<T>;
 
   const property = <K extends keyof T>(key: K): Signal<T[K]> =>
-    (result[key] ??= $(() => resolve(item)[key]));
+    (result[key] ??= derived(() => resolve(item)[key]));
 
   return new Proxy(result, {
     get: (_, key) => property(key as keyof T),
@@ -170,10 +172,10 @@ export const properties = <T extends object>(
 };
 
 export const map = <T, U>(
-  list: MaybeSignal<T[]>,
+  list: MaybeSignal<readonly T[]>,
   mapper: (item: Signal<T>) => U,
   identity: (item: T, i: number) => unknown = _ => _,
-): Signal<U[]> => {
+): Signal<readonly U[]> => {
   type Entry = {
     value: U;
     setValue: (value: T) => void;
