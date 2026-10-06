@@ -5,7 +5,7 @@ export type Signal<T> = (() => T) & { [SIGNAL]: true };
 export type MaybeSignal<T> = T | Signal<T>;
 
 export type Properties<T> = {
-  [K in keyof T]: Signal<T[K]>;
+  [K in keyof T]: MaybeSignal<T[K]>;
 };
 
 type Owner = {
@@ -163,7 +163,7 @@ export const properties = <T extends object>(
 ): Properties<T> => {
   const result = Object.create(null) as Properties<T>;
 
-  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
+  const property = <K extends keyof T>(key: K): MaybeSignal<T[K]> =>
     (result[key] ??= derived(() => resolve(item)[key]));
 
   return new Proxy(result, {
