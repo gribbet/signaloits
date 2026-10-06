@@ -1,4 +1,4 @@
-export const SIGNAL = Symbol.for("signlets/signal");
+export const SIGNAL = Symbol.for("signaloits/signal");
 
 export type Signal<T> = (() => T) & { [SIGNAL]: true };
 
