@@ -17,6 +17,11 @@ let currentOwner: Effect | undefined = undefined;
 let currentListener: Effect | undefined = undefined;
 let queue: Set<Effect> | undefined = undefined;
 
+const dispose = ({ cleanups }: Effect) => {
+  cleanups.forEach(_ => _());
+  cleanups.length = 0;
+};
+
 const flush = () => {
   const pending = queue;
   if (!pending) return;
@@ -42,17 +47,6 @@ const enqueue = (effects: Set<Effect>) => {
   flush();
 };
 
-export const batch = <T>(f: () => T): T => {
-  if (queue) return f();
-
-  queue = new Set();
-  try {
-    return f();
-  } finally {
-    flush();
-  }
-};
-
 export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   const subscribers = new Set<Effect>();
 
@@ -74,11 +68,6 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   };
 
   return [getter, setter];
-};
-
-const dispose = ({ cleanups }: Effect) => {
-  cleanups.forEach(_ => _());
-  cleanups.length = 0;
 };
 
 export const effect = (f: () => void | (() => void)): void => {
@@ -109,8 +98,23 @@ export const effect = (f: () => void | (() => void)): void => {
   run();
 };
 
-export const defer = (f: () => void): void => {
-  currentOwner?.cleanups.push(f);
+export const derived = <T>(f: () => T): Signal<T> => {
+  const [value, setValue] = signal<T>(undefined as T);
+  effect(() => setValue(f()));
+  return value;
+};
+
+export const $: typeof derived = derived;
+
+export const batch = <T>(f: () => T): T => {
+  if (queue) return f();
+
+  queue = new Set();
+  try {
+    return f();
+  } finally {
+    flush();
+  }
 };
 
 export const untrack = <T>(f: () => T): T => {
@@ -123,13 +127,9 @@ export const untrack = <T>(f: () => T): T => {
   }
 };
 
-export const derived = <T>(f: () => T): Signal<T> => {
-  const [value, setValue] = signal<T>(undefined as T);
-  effect(() => setValue(f()));
-  return value;
+export const defer = (f: () => void): void => {
+  currentOwner?.cleanups.push(f);
 };
-
-export const $: typeof derived = derived;
 
 export const root = <T>(f: (dispose: () => void) => T): T => {
   const root = {
