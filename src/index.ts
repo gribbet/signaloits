@@ -1,29 +1,64 @@
-export const SIGNAL = Symbol.for("signlets/signal");
+const SIGNAL: unique symbol = Symbol.for("signaloits/signal");
 
 export type Signal<T> = (() => T) & { [SIGNAL]: true };
 
 export type MaybeSignal<T> = T | Signal<T>;
 
 export type Properties<T> = {
-  [K in keyof T]: MaybeSignal<T[K]>;
+  [K in keyof T]-?: Signal<T[K]>;
 };
 
-export type Effect = {
-  run: () => void;
+type Owner = {
   cleanups: (() => void)[];
 };
 
-let currentOwner: Effect | undefined = undefined;
-let currentListener: Effect | undefined = undefined;
+type Effect = Owner & {
+  run: () => void;
+};
 
-export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
+let currentOwner: Owner | undefined = undefined;
+let currentListener: Effect | undefined = undefined;
+let queue: Set<Effect> | undefined = undefined;
+
+const dispose = ({ cleanups }: Owner) => {
+  cleanups.splice(0).forEach(_ => _());
+};
+
+const flush = () => {
+  const pending = queue;
+  if (!pending) return;
+
+  try {
+    pending.forEach(effect => {
+      pending.delete(effect);
+      effect.run();
+    });
+  } finally {
+    queue = undefined;
+  }
+};
+
+const enqueue = (effects: Set<Effect>) => {
+  if (queue) {
+    const pending = queue;
+    effects.forEach(_ => pending.add(_));
+    return;
+  }
+
+  queue = new Set(effects);
+  flush();
+};
+
+export const signal = <T>(
+  value: T,
+): readonly [Signal<T>, (value: T) => void] => {
   const subscribers = new Set<Effect>();
 
   const getter = (() => {
     const listener = currentListener;
     if (listener && !subscribers.has(listener)) {
       subscribers.add(listener);
-      onCleanup(() => subscribers.delete(listener));
+      defer(() => subscribers.delete(listener));
     }
     return value;
   }) as Signal<T>;
@@ -31,22 +66,17 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   getter[SIGNAL] = true;
 
   const setter = (newValue: T) => {
-    if (value === newValue) return;
+    if (Object.is(value, newValue)) return;
     value = newValue;
-    [...subscribers].forEach(_ => _.run());
+    enqueue(subscribers);
   };
 
   return [getter, setter];
 };
 
-const cleanup = ({ cleanups }: Effect) => {
-  cleanups.forEach(_ => _());
-  cleanups.length = 0;
-};
-
-export const effect = (f: () => void | (() => void)) => {
+export const effect = (f: () => void): void => {
   const run = () => {
-    cleanup(effect);
+    dispose(effect);
 
     const previousOwner = currentOwner;
     const previousListener = currentListener;
@@ -54,25 +84,44 @@ export const effect = (f: () => void | (() => void)) => {
     currentListener = effect;
 
     try {
-      const cleanup = f();
-      if (cleanup) onCleanup(cleanup);
+      f();
     } finally {
       currentOwner = previousOwner;
       currentListener = previousListener;
     }
   };
 
-  const effect = {
+  const effect: Effect = {
     run,
     cleanups: [],
-  } satisfies Effect;
+  };
 
-  onCleanup(() => cleanup(effect));
+  defer(() => {
+    queue?.delete(effect);
+    dispose(effect);
+  });
 
   run();
 };
 
-export const onCleanup = (f: () => void) => currentOwner?.cleanups.push(f);
+export const derived = <T>(f: () => T): Signal<T> => {
+  const [value, setValue] = signal<T>(undefined as T);
+  effect(() => setValue(f()));
+  return value;
+};
+
+export const $: typeof derived = derived;
+
+export const batch = <T>(f: () => T): T => {
+  if (queue) return f();
+
+  queue = new Set();
+  try {
+    return f();
+  } finally {
+    flush();
+  }
+};
 
 export const untrack = <T>(f: () => T): T => {
   const previousListener = currentListener;
@@ -84,19 +133,14 @@ export const untrack = <T>(f: () => T): T => {
   }
 };
 
-export const derived = <T>(f: () => T): Signal<T> => {
-  const [value, setValue] = signal<T>(undefined as T);
-  effect(() => setValue(f()));
-  return value;
+export const defer = (f: () => void): void => {
+  currentOwner?.cleanups.push(f);
 };
 
-export const $ = derived;
-
 export const root = <T>(f: (dispose: () => void) => T): T => {
-  const root = {
-    run: () => {},
+  const root: Owner = {
     cleanups: [],
-  } satisfies Effect;
+  };
 
   const previousOwner = currentOwner;
   const previousListener = currentListener;
@@ -104,7 +148,7 @@ export const root = <T>(f: (dispose: () => void) => T): T => {
   currentListener = undefined;
 
   try {
-    return f(() => cleanup(root));
+    return f(() => dispose(root));
   } finally {
     currentOwner = previousOwner;
     currentListener = previousListener;
@@ -115,89 +159,58 @@ export const resolve = <T>(value: MaybeSignal<T>): T =>
   typeof value === "function" && SIGNAL in value ? value() : value;
 
 export const properties = <T extends object>(
-  item: MaybeSignal<Properties<T>>,
+  item: MaybeSignal<T>,
 ): Properties<T> => {
-  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
-    $(() => resolve(resolve(item)[key] as MaybeSignal<T[K]>));
+  const result = Object.create(null) as Properties<T>;
 
-  const result = {} as Properties<T>;
-  for (const key in resolve(item))
-    Object.defineProperty(result, key, {
-      value: property(key),
-      enumerable: true,
-    });
+  const property = <K extends keyof T>(key: K): Signal<T[K]> =>
+    (result[key] ??= derived(() => resolve(item)[key]));
 
   return new Proxy(result, {
-    get: (target, key) => {
-      if (key in target) return target[key as keyof T];
-      return property(key as keyof T);
-    },
+    get: (_, key) => property(key as keyof T),
   });
 };
 
 export const map = <T, U>(
-  list: MaybeSignal<T[]>,
-  mapper: (item: Signal<T>, i: Signal<number>) => U,
-  options?: {
-    key: (item: T, i: number) => unknown;
-  },
-): Signal<U[]> => {
+  list: MaybeSignal<readonly T[]>,
+  mapper: (item: Signal<T>) => U,
+  identity: (item: T, i: number) => unknown = _ => _,
+): Signal<readonly U[]> => {
   type Entry = {
     value: U;
-    setItem: (item: T) => void;
-    setIndex: (i: number) => void;
+    setValue: (value: T) => void;
     dispose: () => void;
   };
 
-  const createEntry = (item: T, i: number): Entry => {
-    const [itemValue, setItem] = signal(item);
-    const [index, setIndex] = signal(i);
-    return root(dispose => {
-      const value = mapper(itemValue, index);
-      return {
-        value,
-        setItem,
-        setIndex,
-        dispose,
-      };
-    });
+  const createEntry = (item: T): Entry => {
+    const [value, setValue] = signal(item);
+    return root(dispose => ({
+      value: mapper(value),
+      setValue,
+      dispose,
+    }));
   };
 
-  const updateEntry = (entry: Entry, item: T, i: number) => {
-    entry.setItem(item);
-    entry.setIndex(i);
-  };
-
-  const key: (item: T, i: number) => unknown = options?.key ?? (item => item);
   let cache = new Map<unknown, Entry>();
 
-  onCleanup(() => cache.forEach(_ => _.dispose()));
+  defer(() => cache.forEach(_ => _.dispose()));
 
   return derived(() => {
-    const nextList = resolve(list);
-    const next: [unknown, Entry][] = [];
-    const seen = new Set<unknown>();
-
-    nextList.forEach((item, i) => {
-      const itemKey = key(item, i);
-      if (seen.has(itemKey))
-        throw new Error(`Duplicate key in map: ${String(itemKey)}`);
-      seen.add(itemKey);
-
-      let entry = cache.get(itemKey);
-      if (entry) {
-        updateEntry(entry, item, i);
-        cache.delete(itemKey);
-      } else {
-        entry = createEntry(item, i);
-      }
-
-      next.push([itemKey, entry]);
+    const next = new Map<unknown, Entry>();
+    const values = resolve(list).map((item, i) => {
+      const key = identity(item, i);
+      const entry = next.get(key) ?? cache.get(key) ?? createEntry(item);
+      entry.setValue(item);
+      next.set(key, entry);
+      return entry.value;
     });
 
-    cache.forEach(_ => _.dispose());
-    cache = new Map(next);
-    return next.map(([, entry]) => entry.value);
+    cache.forEach((entry, key) => {
+      if (!next.has(key)) entry.dispose();
+    });
+
+    cache = next;
+    return values;
   });
 };
 
@@ -206,26 +219,17 @@ export const when = <T, U extends T, V>(
   predicate: (value: T) => value is U,
   mapper: (value: Signal<U>) => V,
 ): Signal<V | undefined> => {
-  const [result, setResult] = signal<V | undefined>(undefined);
-  let update: ((value: U) => void) | undefined;
+  const result = map(
+    derived(() => {
+      const current = resolve(value);
+      return predicate(current) ? [current] : [];
+    }),
+    mapper,
+    () => true,
+  );
 
-  effect(() => {
-    const current = resolve(value);
-    if (!predicate(current)) {
-      setResult(undefined);
-      update = undefined;
-      return;
-    }
-
-    if (update) {
-      update(current);
-      return;
-    }
-
-    const [narrowed, setNarrowed] = signal(current);
-    update = setNarrowed;
-    setResult(mapper(narrowed));
+  return derived(() => {
+    const [value] = result();
+    return value;
   });
-
-  return result;
 };

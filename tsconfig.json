@@ -1,14 +1,12 @@
 {
   "compilerOptions": {
-    "lib": ["DOM", "ESNext"],
+    "lib": ["ESNext"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "target": "esnext",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "sourceMap": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "declaration": true
+    "declaration": true,
+    "isolatedDeclarations": true
   }
 }
