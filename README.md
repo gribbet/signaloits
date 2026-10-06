@@ -20,4 +20,4 @@ setCount(1);
 
 ## API
 
-`signal`, `effect`, `onCleanup`, `untrack`, `derived`, `$`, `root`, `resolve`, `map`
+`signal`, `effect`, `defer`, `untrack`, `derived`, `$`, `root`, `resolve`, `properties`, `map`, `when`

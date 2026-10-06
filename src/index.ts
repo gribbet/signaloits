@@ -23,7 +23,7 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
     const listener = currentListener;
     if (listener && !subscribers.has(listener)) {
       subscribers.add(listener);
-      onCleanup(() => subscribers.delete(listener));
+      defer(() => subscribers.delete(listener));
     }
     return value;
   }) as Signal<T>;
@@ -55,7 +55,7 @@ export const effect = (f: () => void | (() => void)) => {
 
     try {
       const cleanup = f();
-      if (cleanup) onCleanup(cleanup);
+      if (cleanup) defer(cleanup);
     } finally {
       currentOwner = previousOwner;
       currentListener = previousListener;
@@ -67,12 +67,14 @@ export const effect = (f: () => void | (() => void)) => {
     cleanups: [],
   } satisfies Effect;
 
-  onCleanup(() => cleanup(effect));
+  defer(() => cleanup(effect));
 
   run();
 };
 
-export const onCleanup = (f: () => void) => currentOwner?.cleanups.push(f);
+export const defer = (f: () => void): void => {
+  currentOwner?.cleanups.push(f);
+};
 
 export const untrack = <T>(f: () => T): T => {
   const previousListener = currentListener;
@@ -157,7 +159,7 @@ export const map = <T, U>(
 
   let cache = new Map<unknown, Entry>();
 
-  onCleanup(() => cache.forEach(_ => _.dispose()));
+  defer(() => cache.forEach(_ => _.dispose()));
 
   return derived(() => {
     const next = new Map<unknown, Entry>();
