@@ -112,7 +112,7 @@ export const derived = <T>(f: () => T): Signal<T> => {
 
 export const $: typeof derived = derived;
 
-export const batch = <T>(f: () => T): T => {
+export const batch = (f: () => void): void => {
   if (queue) return f();
 
   queue = new Set();
@@ -123,7 +123,7 @@ export const batch = <T>(f: () => T): T => {
   }
 };
 
-export const untrack = <T>(f: () => T): T => {
+export const untrack = <T>(f: Signal<T>): T => {
   const previousListener = currentListener;
   currentListener = undefined;
   try {
@@ -137,7 +137,9 @@ export const defer = (f: () => void): void => {
   currentOwner?.cleanups.push(f);
 };
 
-export const root = <T>(f: (dispose: () => void) => T): T => {
+export const root = <T>(
+  f: (dispose: () => void) => T extends PromiseLike<unknown> ? never : T,
+): T => {
   const root: Owner = {
     cleanups: [],
   };
