@@ -93,7 +93,10 @@ export const effect = (f: () => void | (() => void)): void => {
     cleanups: [],
   } satisfies Effect;
 
-  defer(() => dispose(effect));
+  defer(() => {
+    queue?.delete(effect);
+    dispose(effect);
+  });
 
   run();
 };
