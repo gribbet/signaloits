@@ -183,26 +183,17 @@ export const when = <T, U extends T, V>(
   predicate: (value: T) => value is U,
   mapper: (value: Signal<U>) => V,
 ): Signal<V | undefined> => {
-  const [result, setResult] = signal<V | undefined>(undefined);
-  let update: ((value: U) => void) | undefined;
+  const result = map(
+    derived(() => {
+      const current = resolve(value);
+      return predicate(current) ? [current] : [];
+    }),
+    mapper,
+    () => true,
+  );
 
-  effect(() => {
-    const current = resolve(value);
-    if (!predicate(current)) {
-      setResult(undefined);
-      update = undefined;
-      return;
-    }
-
-    if (update) {
-      update(current);
-      return;
-    }
-
-    const [narrowed, setNarrowed] = signal(current);
-    update = setNarrowed;
-    setResult(mapper(narrowed));
+  return derived(() => {
+    const [value] = result();
+    return value;
   });
-
-  return result;
 };
