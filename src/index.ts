@@ -5,7 +5,7 @@ export type Signal<T> = (() => T) & { [SIGNAL]: true };
 export type MaybeSignal<T> = T | Signal<T>;
 
 export type Properties<T> = {
-  [K in keyof T]: Signal<T[K]>;
+  [K in keyof T]-?: Signal<T[K]>;
 };
 
 type Effect = {
@@ -70,7 +70,7 @@ export const signal = <T>(value: T): [Signal<T>, (v: T) => void] => {
   return [getter, setter];
 };
 
-export const effect = (f: () => void | (() => void)): void => {
+export const effect = (f: () => void): void => {
   const run = () => {
     dispose(effect);
 
@@ -80,8 +80,7 @@ export const effect = (f: () => void | (() => void)): void => {
     currentListener = effect;
 
     try {
-      const cleanup = f();
-      if (cleanup) defer(cleanup);
+      f();
     } finally {
       currentOwner = previousOwner;
       currentListener = previousListener;
@@ -163,8 +162,6 @@ export const properties = <T extends object>(
 
   const property = <K extends keyof T>(key: K): Signal<T[K]> =>
     (result[key] ??= $(() => resolve(item)[key]));
-
-  for (const key in resolve(item)) property(key);
 
   return new Proxy(result, {
     get: (_, key) => property(key as keyof T),
