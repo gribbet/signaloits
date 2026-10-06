@@ -5,7 +5,7 @@ export type Signal<T> = (() => T) & { [SIGNAL]: true };
 export type MaybeSignal<T> = T | Signal<T>;
 
 export type Properties<T> = {
-  [K in keyof T]-?: Signal<T[K]>;
+  [K in keyof T]: Signal<T[K]>;
 };
 
 type Owner = {
