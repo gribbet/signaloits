@@ -134,8 +134,7 @@ export const untrack = <T>(f: Signal<T>): T => {
 };
 
 export const defer = (f: () => void): void => {
-  if (!currentOwner) throw new Error("defer() must be called within an owner");
-  currentOwner.cleanups.push(f);
+  currentOwner?.cleanups.push(f);
 };
 
 export const root = <T>(
