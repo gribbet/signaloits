@@ -160,6 +160,9 @@ export const root = <T>(
 export const resolve = <T>(value: MaybeSignal<T>): T =>
   typeof value === "function" && SIGNAL in value ? value() : value;
 
+const sameArray = <T>(a: readonly T[], b: readonly T[]) =>
+  a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
+
 export const properties = <T extends object>(
   item: MaybeSignal<T>,
 ): Properties<T> => {
@@ -194,6 +197,7 @@ export const map = <T, U>(
   };
 
   let cache = new Map<unknown, Entry>();
+  let previous: readonly U[] | undefined;
 
   defer(() => cache.forEach(_ => _.dispose()));
 
@@ -212,6 +216,10 @@ export const map = <T, U>(
     });
 
     cache = next;
+
+    if (previous && sameArray(values, previous)) return previous;
+
+    previous = values;
     return values;
   });
 };
