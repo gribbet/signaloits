@@ -1,6 +1,6 @@
 {
   "name": "signaloits",
-  "version": "2.0.7",
+  "version": "0.0.0-development",
   "description": "Tiny fine-grained reactive signals for TypeScript.",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,7 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@gribbet/vite-config": "1.0.1",
+    "@gribbet/vite-config": "1.0.5",
     "vite-plus": "1.1.0"
   },
   "overrides": {
